@@ -1,73 +1,68 @@
 import tkinter.messagebox
-import tkinter as tk
-#from tkinter import as tk
+from tkinter import *
+# from PyQt5.QtWidgets import *
 import cv2
-import numpy as np
+from PIL import Image, ImageTk
+import mediapipe as mp
+import sys
 
-rt = tk.Tk()
-vid = cv2.VideoCapture(0)
+width, height = 800, 600
+vid = None
+label_widget = None
+userInput = sys.argv
 
-canvas = tk.Canvas()
-img = None
-height, width, channels = None, None, None
+
+def init_interface():
+    global width, height, label_widget
+
+    app = Tk()
+    app.bind('<Escape>', lambda e: app.quit())
+    app.grid_rowconfigure(0, weight=1)
+    app.grid_rowconfigure(1, weight=1)
+    app.grid_columnconfigure(0, weight=1)
+    app.grid_columnconfigure(1, weight=1)
+
+    label_widget = Label(app)
+    label_widget.grid(row=0, column=0, sticky=NW)
+    app.geometry(f"{width + 100}x{height + 100}")
+
+    button1 = Button(app, text="Open Camera", command=get_frame)
+    button1.grid(column=0, row=1)
+
+    button2 = Button(app, text="test_button")
+    button2.grid(column=1, row=1)
+
+    return app
+
+
+def init_camera():
+    global width, height
+    video = cv2.VideoCapture(0)
+    video.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+    video.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+    return video
 
 
 def get_frame():
-    global img, rt
-    ret, frame = vid.read()
-    img = frame
-    tk.Canvas.image = (img)
-    canvas.create_image(480,600, anchor=tk.NW, image=img)
+    global vid, label_widget
+    _, frame = vid.read()
+    frame = cv2.resize(frame, (width, height), interpolation=cv2.INTER_NEAREST)
 
-    # canvas.create_image(0,0, anchor=tk.NW, image=img)
+    opencv_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA)
 
-def tk_interface_init():
-    global rt, canvas
-    #window
-    width = 600
-    height = 400
+    captured_image = Image.fromarray(opencv_image)
+    photo_image = ImageTk.PhotoImage(image=captured_image)
 
-    rt.geometry(f"{width}x{height}")
-    rt.grid()
-    #Ui elements
-    button_height = 50
+    label_widget.photo_image = photo_image
+    label_widget.configure(image=photo_image)
 
-    canvas = tk.Canvas(rt, width=width, height=height - button_height)
-
-    # btn = Button(root, text="Select an image", command=get_frame())
-    # btn.pack(side="bottom", fill="both", expand="yes", padx="10", pady="10")
-    rt.grid_rowconfigure(0, weight=1)
-    rt.grid_rowconfigure(1, weight=1)
-    rt.grid_columnconfigure(0, weight=1)
-    rt.grid_columnconfigure(1, weight=1)
-
-    canvas.grid(row=0, column=0, sticky="nsew")
-
-    # .create_image(canvas, )
-    tk.Canvas.image = img
-    canvas.create_image(480,600, anchor=tk.NW, image=img)
-    tk.Label(rt, text="Etykieta 1").grid(row=0, column=0, sticky="nsew")
-    tk.Button(rt, text="Get frame", command=get_frame()).grid(row=1, column=0, sticky="nsew")
-    tk.Entry(rt).grid(row=1, column=1, sticky="nsew")
+    label_widget.after(10, get_frame)
 
 
 if __name__ == '__main__':
-    tk_interface_init()
-
-    rt.mainloop()
-    #while True:
-        # kick off the GUI
-
-        #
-        #
-        # # frame_2 = cv2.cvtColor(frame, cv2.COLOR)
-        # gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        # cv2.imshow('img', img)
-        #
-        # if cv2.waitKey(1) & 0xFF == ord('q'):
-        #     break
-
-# After the loop release the cap object
-vid.release()
-# Destroy all the windows
-cv2.destroyAllWindows()
+    vid = init_camera()
+    app = init_interface()
+    try:
+        app.mainloop()
+    except Exception as ex:
+        print(ex)
