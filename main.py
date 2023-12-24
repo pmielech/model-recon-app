@@ -1,3 +1,5 @@
+import time
+
 from interface import *
 import cv2
 import mediapipe as mp
@@ -8,6 +10,7 @@ vid = None
 img = None
 label_widget = None
 userInput = sys.argv
+app = None
 
 
 def init_camera():
@@ -24,11 +27,29 @@ def get_frame(video: cv2.VideoCapture):
 
     return cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA)
 
+
 def numpy_to_pixmap(numpy_image):
     num_height, num_width, channel = numpy_image.shape
     q_image = QImage(numpy_image.data, num_width, num_height, QImage.Format_RGBA8888)
 
     return QPixmap.fromImage(q_image)
+
+
+def video_loop(app: QWidget, video: cv2.VideoCapture, flag):
+        frame = get_frame(video)
+        if frame is not None:
+            pixmap = numpy_to_pixmap(frame)
+            app.image_label.setPixmap(pixmap)
+
+
+
+def cam_process(app: QWidget, video: cv2.VideoCapture):
+    video = init_camera()
+    app.timer = app.QTimer(app)  # Create Timer
+    if video is not None:
+        app.timer.timeout.connect(video_loop(app, video))  # Connect timeout to the output function
+        app.timer.start(40)  # emit the timeout() signal at x=40ms
+        #video_loop(app, video, True)
 
 
 def update_image(self: QWidget):
