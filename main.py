@@ -14,9 +14,9 @@ userInput = sys.argv
 app = None
 
 
-def init_camera():
+def init_camera(source):
     global width, height
-    vid_object = cv2.VideoCapture(0)
+    vid_object = cv2.VideoCapture(source)
     vid_object.set(cv2.CAP_PROP_FRAME_WIDTH, width)
     vid_object.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
     return vid_object
@@ -31,18 +31,28 @@ def numpy_to_pixmap(numpy_image):
 
 def get_frame(video: cv2.VideoCapture):
     global width, height
-    _, frame = video.read()
-    frame_res = cv2.resize(frame, (width, height), interpolation=cv2.INTER_NEAREST)
+    frame_res = None
+    try:
+        _, frame = video.read()
+        if frame is not None:
+            frame_res = cv2.resize(frame, (width, height), interpolation=cv2.INTER_NEAREST)
+
+    except Exception as ex:
+        print(ex)
 
     return frame_res
 
 
-def video_loop(video: cv2.VideoCapture, relative_app: QWidget):
+def video_loop(video: cv2.VideoCapture, relative_app: QWidget, thread: QThread):
     frame = get_frame(video)
     if frame is not None:
         rec_frame = recognition_process(frame)
         frame = cv2.cvtColor(rec_frame, cv2.COLOR_BGR2RGBA)
         relative_app.updateUi_image(frame)
+
+    else:
+        thread.terminate()
+
 
 
 def run_cam_process(pass_app: QWidget):
@@ -54,6 +64,7 @@ def recognition_process(image):
     global pose, mp_drawing
 
     results = pose.process(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+    # results = pose.process(image)
     if results.pose_landmarks:
         mp_drawing.draw_landmarks(image=image, landmark_list=results.pose_landmarks,
                                   connections=mp_pose.POSE_CONNECTIONS)

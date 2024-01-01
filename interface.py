@@ -5,6 +5,12 @@ from PyQt5.QtCore import Qt, QTimer, QDateTime, QThread, QEventLoop
 from main import cv2, width, height, run_cam_process
 from main import init_camera, video_loop, numpy_to_pixmap
 
+sourceDict = {
+    "Cam": 0,
+    "Image": 1,
+    "Video": 2
+}
+
 
 class Window(QWidget):
     width, height = 800, 600
@@ -48,23 +54,20 @@ class Window(QWidget):
         layout.setColumnStretch(1, 1)
 
         self.setLayout(layout)
+
+        self.selected_source = None
         self.current_image = None
         self.videoCollectionThread = None
+        self.input_path = None
 
         self.set_empty_image()
 
-    def cam_process(self):
-        video = init_camera()
+    def cam_process(self, vid_source):
+        video = init_camera(vid_source)
 
         self.videoCollectionThread = VideoCaptureThread(self, video)
         self.videoCollectionThread.setTerminationEnabled(False)
         self.videoCollectionThread.start()
-
-        # self.timer = self.QTimer(self)  # Create Timer
-        # if video is not None:
-        #     self.timer.timeout.connect(video_loop(self, video))  # Connect timeout to the output function
-        #     self.timer.start(40)  # emit the timeout() signal at x=40ms
-        #     # video_loop(app, video, True)
 
     def updateUi_image(self, image):
         pixmap = numpy_to_pixmap(image)
@@ -82,37 +85,53 @@ class Window(QWidget):
             pixmap = QPixmap(file_path)
             self.image_label.setPixmap(pixmap)
 
-    # def load_video(self):
-    #     file_dialog = QFileDialog()
-    #     file_path, _ = file_dialog.getOpenFileName(self, 'Choose image', '',
-    #                                                'Images (*.png *.jpg *.jpeg *.gif)')
-    #     if file_path:
-    #         pixmap = QPixmap(file_path)
-    #         self.image_label.setPixmap(pixmap)
+    def load_video(self):
+        file_dialog = QFileDialog()
+        self.input_path, _ = file_dialog.getOpenFileName(self, 'Choose video', '',
+                                                         'Video (*.mp4 *.flv *.ts *.mts *.avi *.mov)')
 
-    # def button_click_(self):
-    #     update_image(self)
+    def get_file_path(self):
+        self.selected_source = self.comboBox.currentText()
+        sel_type = None
+        file_format = None
+
+        if self.selected_source == "Video":
+            sel_type = "video"
+            file_format = 'Video (*.mp4 *.flv *.ts *.mts *.avi *.mov)'
+        elif self.selected_source == "Image":
+            sel_type = "image"
+            file_format = 'Images (*.png *.jpg *.jpeg *.gif)'
+
+        try:
+            if sel_type is not None:
+                file_dialog = QFileDialog()
+                self.input_path, _ = file_dialog.getOpenFileName(self, 'Choose ' + sel_type, '',
+                                                                 file_format)
+        except Exception as ex:
+            print(ex)
 
     def button_click_Load(self):
-        pass
+        self.get_file_path()
 
     def button_click_Start(self):
 
-        index = self.comboBox.currentIndex()
+        self.selected_source = self.comboBox.currentText()
 
-        if index == 0:
-            # run_cam_process(self)
-            self.cam_process()
+        selection = self.selected_source
+        source = None
 
-        elif index == 1:
+        if selection in sourceDict.keys():
+            index = sourceDict.get(selection)
+            if index > 0:
+                source = self.input_path
+            else:
+                source = 0
 
-            pass
-
-        elif index == 2:
-
-            pass
+        if source is not None:
+            self.cam_process(source)
 
     def handle_combobox_change(self, index):
+
         if index == 0:
             self.load_button.setEnabled(False)
         else:
@@ -126,7 +145,7 @@ class VideoCaptureThread(QThread):
         self.dataCollectionTimer = QTimer()
         self.dataCollectionTimer.moveToThread(self)
         self.frame = None
-        self.dataCollectionTimer.timeout.connect(lambda: video_loop(video, relative_app))
+        self.dataCollectionTimer.timeout.connect(lambda: video_loop(video, relative_app, self))
 
     def run(self):
         self.dataCollectionTimer.start(50)
