@@ -1,64 +1,9 @@
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import Qt, QTimer, QDateTime, QThread, QEventLoop
-from main import cv2
 
-relative_app = None
-frame = None
-vid_object = None
-
-
-def init_camera():
-    global width, height, vid_object
-    vid_object = cv2.VideoCapture(0)
-    vid_object.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-    vid_object.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-
-
-def numpy_to_pixmap(numpy_image):
-    num_height, num_width, channel = numpy_image.shape
-    q_image = QImage(numpy_image.data, num_width, num_height, QImage.Format_RGBA8888)
-
-    return QPixmap.fromImage(q_image)
-
-
-def get_frame(video: cv2.VideoCapture):
-    _, frame = video.read()
-    frame = cv2.resize(frame, (width, height), interpolation=cv2.INTER_NEAREST)
-
-    return cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA)
-
-
-def video_loop(self, video: cv2.VideoCapture, flag):
-    global frame
-    frame = get_frame(video)
-    if frame is not None:
-        pixmap = numpy_to_pixmap(frame)
-        self.image_label.setPixmap(pixmap)
-
-
-def collectProcessData():
-    global relative_app
-    print("Collecting Process Data")
-    print(type(relative_app))
-
-
-class VideoCaptureThread(QThread):
-
-    def __init__(self, *args, **kwargs):
-        QThread.__init__(self, *args, **kwargs)
-        self.dataCollectionTimer = QTimer()
-        self.dataCollectionTimer.moveToThread(self)
-        self.dataCollectionTimer.timeout.connect(video_loop())
-
-    def run(self):
-        self.dataCollectionTimer.start(1000)
-        loop = QEventLoop()
-        loop.exec_()
-
-    def setRelativeApp(self, pass_app):
-        global relative_app
-        relative_app = pass_app
+from main import cv2, width, height, run_cam_process
+from main import init_camera, video_loop, numpy_to_pixmap
 
 
 class Window(QWidget):
@@ -103,15 +48,23 @@ class Window(QWidget):
         layout.setColumnStretch(1, 1)
 
         self.setLayout(layout)
+        self.current_image = None
+        self.videoCollectionThread = None
+
         self.set_empty_image()
 
-    def cam_process(self, video: cv2.VideoCapture):
+    def cam_process(self):
         video = init_camera()
-        self.timer = self.QTimer(self)  # Create Timer
-        if video is not None:
-            self.timer.timeout.connect(video_loop(self, video))  # Connect timeout to the output function
-            self.timer.start(40)  # emit the timeout() signal at x=40ms
-            # video_loop(app, video, True)
+
+        self.videoCollectionThread = VideoCaptureThread(self, video)
+        self.videoCollectionThread.setTerminationEnabled(False)
+        self.videoCollectionThread.start()
+
+        # self.timer = self.QTimer(self)  # Create Timer
+        # if video is not None:
+        #     self.timer.timeout.connect(video_loop(self, video))  # Connect timeout to the output function
+        #     self.timer.start(40)  # emit the timeout() signal at x=40ms
+        #     # video_loop(app, video, True)
 
     def updateUi_image(self, image):
         pixmap = numpy_to_pixmap(image)
@@ -144,26 +97,38 @@ class Window(QWidget):
         pass
 
     def button_click_Start(self):
-        self.videoCollectionThread = VideoCaptureThread()
-        self.videoCollectionThread.setTerminationEnabled(True)
-        self.videoCollectionThread.setRelativeApp(self)
-        self.videoCollectionThread.start()
-        # global vid
-        # index = self.comboBox.currentIndex()
-        #
-        # if index == 0:
-        #     cam_process(self, vid)
-        #
-        # elif index == 1:
-        #
-        #     pass
-        #
-        # elif index == 2:
-        #
-        #     pass
+
+        index = self.comboBox.currentIndex()
+
+        if index == 0:
+            # run_cam_process(self)
+            self.cam_process()
+
+        elif index == 1:
+
+            pass
+
+        elif index == 2:
+
+            pass
 
     def handle_combobox_change(self, index):
         if index == 0:
             self.load_button.setEnabled(False)
         else:
             self.load_button.setEnabled(True)
+
+
+class VideoCaptureThread(QThread):
+
+    def __init__(self, relative_app: QWidget, video: cv2.VideoCapture, *args, **kwargs):
+        QThread.__init__(self, *args, **kwargs)
+        self.dataCollectionTimer = QTimer()
+        self.dataCollectionTimer.moveToThread(self)
+        self.frame = None
+        self.dataCollectionTimer.timeout.connect(lambda: video_loop(video, relative_app))
+
+    def run(self):
+        self.dataCollectionTimer.start(50)
+        loop = QEventLoop()
+        loop.exec_()
