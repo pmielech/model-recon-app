@@ -1,11 +1,15 @@
 
+#program
+OUTPUT/
+test-path/
+
 ### macOS ###
 # General
 .DS_Store
 .AppleDouble
 .LSOverride
 
- Environments
+#Environments
 .env
 .venv
 env/

@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import Qt, QTimer, QDateTime, QThread, QEventLoop
 
-from main import cv2, width, height, run_cam_process
+from main import cv2, width, height
 from main import init_camera, video_loop, numpy_to_pixmap
 
 sourceDict = {
@@ -74,6 +74,7 @@ class Window(QWidget):
         self.videoCollectionThread = None
         self.input_path = None
         self.video = None
+        self.outfile = None
         self.set_empty_image()
 
     def set_circle_color(self, color):
@@ -89,7 +90,7 @@ class Window(QWidget):
         self.circle_label.setPixmap(pixmap)
 
     def cam_process(self, vid_source):
-        self.video = init_camera(vid_source)
+        self.video, self.outfile = init_camera(vid_source)
 
         if self.video is None or not self.video.isOpened():
             print('Warning: unable to open video source: ', self.video)
@@ -148,6 +149,7 @@ class Window(QWidget):
             self.videoCollectionThread.terminate()
             self.set_circle_color(Qt.red)
             self.video.release()
+            self.outfile.release()
 
         pass
 
