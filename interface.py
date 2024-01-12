@@ -32,6 +32,10 @@ class Window(QWidget):
 
         button_layout = QVBoxLayout()
 
+        # self.visProgramFlow = QGraphicsEllipseItem(0, 0, 20, 20)  # x, y, width, height
+        # self.visProgramFlow = CircleRoi
+        # button_layout.addWidget(self.visProgramFlow)
+
         self.comboBox = QComboBox()
         self.comboBox.addItems(['Cam', 'Image', 'Video'])
         self.comboBox.currentIndexChanged.connect(self.handle_combobox_change)
@@ -48,10 +52,20 @@ class Window(QWidget):
 
         button_layout.addWidget(self.start_button)
 
+        self.start_button = QPushButton('Stop')
+        self.start_button.clicked.connect(self.button_click_Stop)
+
+        button_layout.addWidget(self.start_button)
+        # Etykieta z okręgiem
+        self.circle_label = QLabel()
+        layout.addWidget(self.circle_label)
+
         layout.addLayout(button_layout, 0, 2, 2, 1)
 
         layout.setColumnStretch(0, 2)
         layout.setColumnStretch(1, 1)
+
+        self.set_circle_color(Qt.red)
 
         self.setLayout(layout)
 
@@ -59,15 +73,31 @@ class Window(QWidget):
         self.current_image = None
         self.videoCollectionThread = None
         self.input_path = None
-
+        self.video = None
         self.set_empty_image()
 
-    def cam_process(self, vid_source):
-        video = init_camera(vid_source)
+    def set_circle_color(self, color):
+        pixmap = QPixmap(20, 20)
+        pixmap.fill(Qt.transparent)
 
-        self.videoCollectionThread = VideoCaptureThread(self, video)
-        self.videoCollectionThread.setTerminationEnabled(False)
-        self.videoCollectionThread.start()
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        painter.setBrush(QColor(color))
+        painter.drawEllipse(0, 0, 20, 20)
+        painter.end()
+        self.circle_label.setPixmap(pixmap)
+
+    def cam_process(self, vid_source):
+        self.video = init_camera(vid_source)
+
+        if self.video is None or not self.video.isOpened():
+            print('Warning: unable to open video source: ', self.video)
+
+        else:
+            self.videoCollectionThread = VideoCaptureThread(self, self.video)
+            self.videoCollectionThread.setTerminationEnabled(True)
+            self.videoCollectionThread.start()
 
     def updateUi_image(self, image):
         pixmap = numpy_to_pixmap(image)
@@ -113,9 +143,18 @@ class Window(QWidget):
     def button_click_Load(self):
         self.get_file_path()
 
+    def button_click_Stop(self):
+        if self.videoCollectionThread is not None:
+            self.videoCollectionThread.terminate()
+            self.set_circle_color(Qt.red)
+            self.video.release()
+
+        pass
+
     def button_click_Start(self):
 
         self.selected_source = self.comboBox.currentText()
+        self.set_circle_color(Qt.green)
 
         selection = self.selected_source
         source = None

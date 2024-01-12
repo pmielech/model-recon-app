@@ -52,7 +52,7 @@ def video_loop(video: cv2.VideoCapture, relative_app: QWidget, thread: QThread):
 
     else:
         thread.terminate()
-
+        video.release()
 
 
 def run_cam_process(pass_app: QWidget):
