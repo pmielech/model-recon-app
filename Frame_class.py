@@ -7,9 +7,10 @@ class Frame:
         self.landmarks = []
         self.init_landmarks()
 
-    def set_landmark_params(self, landmark_index, x, y):
+    def set_landmark_params(self, landmark_index, x, y, visibility):
         self.landmarks[landmark_index].x = x
         self.landmarks[landmark_index].y = y
+        self.landmarks[landmark_index].visibility = visibility
 
     def init_landmarks(self):
         for land in self.landmarks_desc.keys():
@@ -19,18 +20,13 @@ class Frame:
         return json.dumps(self, default=lambda o: o.__dict__,
                           sort_keys=True, indent=4)
 
-    def to_dict(self, session):
-        return {
-            "session": session,
-            "landmarks": [{"index": landmark.index, "name": landmark.name, "x": landmark.x, "y": landmark.y} for landmark in self.landmarks]
-        }
-
     class Landmark:
-        def __init__(self, landmark_index, set_name, set_x, set_y):
+        def __init__(self, landmark_index, set_name, set_x, set_y, set_visibility=0):
             self.index = landmark_index
             self.name = set_name
             self.x = set_x
             self.y = set_y
+            self.visibility = set_visibility
 
     landmarks_desc = {
         0: "nose",

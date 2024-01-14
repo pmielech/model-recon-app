@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import Qt, QTimer, QDateTime, QThread, QEventLoop
 
-from main import cv2, width, height
+from main import cv2, Path
 from main import init_camera, video_loop, numpy_to_pixmap, convert_collected_to_json
 
 sourceDict = {
@@ -13,9 +13,8 @@ sourceDict = {
 
 
 class Window(QWidget):
-    width, height = 800, 600
 
-    def __init__(self):
+    def __init__(self, width=800, height=600):
         super().__init__()
 
         self.setWindowTitle('Recon App')
@@ -32,43 +31,41 @@ class Window(QWidget):
 
         button_layout = QVBoxLayout()
 
-        # self.visProgramFlow = QGraphicsEllipseItem(0, 0, 20, 20)  # x, y, width, height
-        # self.visProgramFlow = CircleRoi
-        # button_layout.addWidget(self.visProgramFlow)
-
         self.comboBox = QComboBox()
         self.comboBox.addItems(['Cam', 'Image', 'Video'])
         self.comboBox.currentIndexChanged.connect(self.handle_combobox_change)
         button_layout.addWidget(self.comboBox)
 
+        # TODO: add camera sources combobox
+
         self.load_button = QPushButton('Load file')
         self.load_button.clicked.connect(self.button_click_Load)
         self.load_button.setEnabled(False)
-
         button_layout.addWidget(self.load_button)
+
+        self.load_work_button = QPushButton('Load work-file')
+        self.load_work_button.clicked.connect(self.button_click_Load_workFile)
+        button_layout.addWidget(self.load_work_button)
 
         self.start_button = QPushButton('Start')
         self.start_button.clicked.connect(self.button_click_Start)
-
         button_layout.addWidget(self.start_button)
 
-        self.start_button = QPushButton('Stop')
-        self.start_button.clicked.connect(self.button_click_Stop)
+        self.stop_button = QPushButton('Stop')
+        self.stop_button.clicked.connect(self.button_click_Stop)
+        button_layout.addWidget(self.stop_button)
 
-        button_layout.addWidget(self.start_button)
-        # Etykieta z okręgiem
         self.circle_label = QLabel()
         layout.addWidget(self.circle_label)
 
         layout.addLayout(button_layout, 0, 2, 2, 1)
-
         layout.setColumnStretch(0, 2)
         layout.setColumnStretch(1, 1)
 
         self.set_circle_color(Qt.red)
-
         self.setLayout(layout)
 
+        ## ATRIBUTES
         self.selected_source = None
         self.current_image = None
         self.videoCollectionThread = None
@@ -76,6 +73,8 @@ class Window(QWidget):
         self.video = None
         self.outfile = None
         self.session = None
+        self.image_width = width
+        self.image_height = height
         self.set_empty_image()
 
     def set_circle_color(self, color):
@@ -91,7 +90,7 @@ class Window(QWidget):
         self.circle_label.setPixmap(pixmap)
 
     def cam_process(self, vid_source):
-        self.video, self.outfile, self.session = init_camera(vid_source)
+        self.video, self.outfile, self.session = init_camera(vid_source, self)
 
         if self.video is None or not self.video.isOpened():
             print('Warning: unable to open video source: ', self.video)
@@ -106,13 +105,14 @@ class Window(QWidget):
         self.image_label.setPixmap(pixmap)
 
     def set_empty_image(self):
-        empty_image = QImage(800, 600, QImage.Format_RGB32)
+        empty_image = QImage(self.image_width, self.image_height, QImage.Format_RGB32)
         empty_image.fill(Qt.white)
         self.image_label.setPixmap(QPixmap.fromImage(empty_image))
 
     def load_image(self):
         file_dialog = QFileDialog()
-        file_path, _ = file_dialog.getOpenFileName(self, 'Choose image', '', 'Images (*.png *.jpg *.jpeg *.gif)')
+        file_path, _ = file_dialog.getOpenFileName(self, 'Choose image', '',
+                                                   'Images (*.png *.jpg *.jpeg *.gif)')
         if file_path:
             pixmap = QPixmap(file_path)
             self.image_label.setPixmap(pixmap)
@@ -122,28 +122,58 @@ class Window(QWidget):
         self.input_path, _ = file_dialog.getOpenFileName(self, 'Choose video', '',
                                                          'Video (*.mp4 *.flv *.ts *.mts *.avi *.mov)')
 
-    def get_file_path(self):
+    def get_file_path(self, is_workfile=False):
         self.selected_source = self.comboBox.currentText()
         sel_type = None
         file_format = None
+        if not is_workfile:
+            if self.selected_source == "Video":
+                sel_type = "video"
+                file_format = 'Video (*.mp4 *.flv *.ts *.mts *.avi *.mov)'
+            elif self.selected_source == "Image":
+                sel_type = "image"
+                file_format = 'Images (*.png *.jpg *.jpeg *.gif)'
 
-        if self.selected_source == "Video":
-            sel_type = "video"
-            file_format = 'Video (*.mp4 *.flv *.ts *.mts *.avi *.mov)'
-        elif self.selected_source == "Image":
-            sel_type = "image"
-            file_format = 'Images (*.png *.jpg *.jpeg *.gif)'
+            try:
+                if sel_type is not None:
+                    file_dialog = QFileDialog()
+                    self.input_path, _ = file_dialog.getOpenFileName(self, 'Choose ' + sel_type, '',
+                                                                     file_format)
 
+                    self.show_info_message("Success!", "Chosen file: " + self.input_path)
+
+            except Exception as ex:
+                print(ex)
+        else:
+            sel_type = "workfile"
+            file_format = 'Text file (*.txt)'
+            file_dialog = QFileDialog()
+            path, _ = file_dialog.getOpenFileName(self, 'Choose ' + sel_type, '',
+                                                  file_format)
+            self.convertWorkfile_toJson(path)
+
+    def convertWorkfile_toJson(self, path):
         try:
-            if sel_type is not None:
-                file_dialog = QFileDialog()
-                self.input_path, _ = file_dialog.getOpenFileName(self, 'Choose ' + sel_type, '',
-                                                                 file_format)
+            session = Path(path).stem
+            convert_collected_to_json(session)
+            self.show_info_message("Success!", "Operation completed. Successfully saved collected data.")
         except Exception as ex:
-            print(ex)
+            self.show_info_message("Something went wrong!", str(ex))
+
+        pass
 
     def button_click_Load(self):
         self.get_file_path()
+
+    def button_click_Load_workFile(self):
+        self.get_file_path(is_workfile=True)
+
+    def show_info_message(self, title: str, message: str):
+        dialog = QMessageBox(self)
+        dialog.setWindowTitle(title)
+        dialog.setText(message)
+        dialog.setIcon(QMessageBox.Information)
+        dialog.exec_()
 
     def button_click_Stop(self):
         if self.videoCollectionThread is not None:
@@ -151,8 +181,11 @@ class Window(QWidget):
             self.set_circle_color(Qt.red)
             self.video.release()
             self.outfile.release()
-            convert_collected_to_json(self)
-
+            try:
+                convert_collected_to_json(str(self.session))
+                self.show_info_message("Success!", "Operation completed. Successfully saved collected data.")
+            except Exception as ex:
+                self.show_info_message("Something went wrong!", str(ex))
         pass
 
     def button_click_Start(self):

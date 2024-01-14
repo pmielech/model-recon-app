@@ -1,10 +1,12 @@
 import os
 from datetime import datetime
+from pathlib import Path
 import time
 import cv2
 import mediapipe as mp
 import sys
 import json
+
 
 from interface import *
 from Frame_class import Frame
@@ -34,7 +36,7 @@ def check_dir(path):
             sys.exit(ex)
 
 
-def init_camera(source):
+def init_camera(source, relative_app: QWidget):
     global width, height, fourcc, global_frame_cnt
     vid_object = cv2.VideoCapture(source)
     vid_object.set(cv2.CAP_PROP_FRAME_WIDTH, width)
@@ -52,7 +54,7 @@ def init_camera(source):
     try:
         outfile = cv2.VideoWriter(filepath, fourcc, 20.0, (width, height))
     except Exception as ex:
-        sys.exit(ex)
+        relative_app.show_info_message("Something went wrong!", str(ex))
 
     return vid_object, outfile, current_datetime
 
@@ -83,7 +85,7 @@ def create_json(path, session):
     with open(JSON_TEMP, 'r', encoding='utf-8') as temp_file:
         data = json.load(temp_file)
         data['session'] = session
-        with open(path, 'a', encoding='utf-8') as json_file:
+        with open(OUTPUTDIR + path, 'a', encoding='utf-8') as json_file:
             json.dump(data, json_file, indent=4)
 
 
@@ -94,15 +96,15 @@ def add_frame_to_txt(frame, path):
         json_file.write(os.linesep + ',')
 
 
-def convert_collected_to_json(relative_app):
+def convert_collected_to_json(session):
     json_data = None
-    create_json(OUTPUTDIR + str(relative_app.session) + '.json', relative_app.session)
-    with open(OUTPUTDIR + str(relative_app.session) + '.json', 'r', encoding='utf-8') as json_file:
+    create_json('LOG' + session + '.json',  session)
+    with open(OUTPUTDIR + 'LOG' + session + '.json', 'r', encoding='utf-8') as json_file:
         json_data = json.load(json_file)
 
-    with open(OUTPUTDIR + 'LOG' + str(relative_app.session) + '.json', 'w', encoding='utf-8') as json_file:
+    with open(OUTPUTDIR + 'LOG' + session + '.json', 'w', encoding='utf-8') as json_file:
         if json_data is not None:
-            with open(WORKDIR + str(relative_app.session) + '.txt', 'r', encoding='utf-8') as txt_file:
+            with open(WORKDIR + session + '.txt', 'r', encoding='utf-8') as txt_file:
                 str_data = txt_file.read()
             str_data = '[\n' + str_data[:-1] + '\n]'
             list_data = json.loads(str_data)
@@ -113,17 +115,13 @@ def convert_collected_to_json(relative_app):
 def video_loop(video: cv2.VideoCapture, relative_app: QWidget, thread: QThread):
     global global_frame_cnt
     frame = get_frame(video)
-    txt_path = WORKDIR + relative_app.session
+    txt_path = WORKDIR + str(relative_app.session)
     if frame is not None:
         rec_frame, frame_obj = recognition_process(frame)
         cv2.putText(rec_frame, str(global_frame_cnt), (10, 50), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
         relative_app.outfile.write(rec_frame)
         if frame_obj is not None:
-            if global_frame_cnt == 0:
-                # create_json(json_path, relative_app.session)
-                pass
-
             add_frame_to_txt(frame_obj, txt_path + '.txt')
 
         frame = cv2.cvtColor(rec_frame, cv2.COLOR_BGR2RGBA)
@@ -131,9 +129,17 @@ def video_loop(video: cv2.VideoCapture, relative_app: QWidget, thread: QThread):
         global_frame_cnt += 1
 
     else:
-        video.release()
         thread.terminate()
-        convert_collected_to_json(relative_app, txt_path)
+        video.release()
+        relative_app.show_info_message("Connection lost", "Lost connection with the camera source or video just ended."
+                                                          "Converting collected data...")
+        relative_app.set_circle_color(Qt.red)
+        try:
+            convert_collected_to_json(str(relative_app.session))
+            relative_app.show_info_message("Success!", "Operation completed. Successfully saved collected data.")
+
+        except Exception as ex:
+            relative_app.show_info_message("Something went wrong!", str(ex))
 
 
 def recognition_process(image):
@@ -150,10 +156,9 @@ def recognition_process(image):
         for index, landmark in enumerate(results.pose_landmarks.landmark):
             if landmark is not None:
                 try:
-                    frame.set_landmark_params(index, landmark.x * width, landmark.y * height)
+                    frame.set_landmark_params(index, landmark.x * width, landmark.y * height, landmark.visibility)
                 except Exception as ex:
                     print(ex)
-        # json_str = frame.to_json()
 
     return image, frame
 
@@ -161,6 +166,6 @@ def recognition_process(image):
 if __name__ == '__main__':
     app = QApplication(sys.argv)
 
-    window = Window()
+    window = Window(width=width, height=height)
     window.show()
     sys.exit(app.exec_())
