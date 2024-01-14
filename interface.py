@@ -3,7 +3,7 @@ from PyQt5.QtGui import *
 from PyQt5.QtCore import Qt, QTimer, QDateTime, QThread, QEventLoop
 
 from main import cv2, width, height
-from main import init_camera, video_loop, numpy_to_pixmap
+from main import init_camera, video_loop, numpy_to_pixmap, convert_collected_to_json
 
 sourceDict = {
     "Cam": 0,
@@ -75,6 +75,7 @@ class Window(QWidget):
         self.input_path = None
         self.video = None
         self.outfile = None
+        self.session = None
         self.set_empty_image()
 
     def set_circle_color(self, color):
@@ -90,7 +91,7 @@ class Window(QWidget):
         self.circle_label.setPixmap(pixmap)
 
     def cam_process(self, vid_source):
-        self.video, self.outfile = init_camera(vid_source)
+        self.video, self.outfile, self.session = init_camera(vid_source)
 
         if self.video is None or not self.video.isOpened():
             print('Warning: unable to open video source: ', self.video)
@@ -150,6 +151,7 @@ class Window(QWidget):
             self.set_circle_color(Qt.red)
             self.video.release()
             self.outfile.release()
+            convert_collected_to_json(self)
 
         pass
 
@@ -169,7 +171,8 @@ class Window(QWidget):
                 source = 0
 
         if source is not None:
-            self.cam_process(source)
+            if self.videoCollectionThread is None or not self.videoCollectionThread.isRunning():
+                self.cam_process(source)
 
     def handle_combobox_change(self, index):
 
