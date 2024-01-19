@@ -7,9 +7,10 @@ class Frame:
         self.landmarks = []
         self.init_landmarks()
 
-    def set_landmark_params(self, landmark_index, x, y, visibility):
+    def set_landmark_params(self, landmark_index, x, y, z, visibility):
         self.landmarks[landmark_index].x = x
         self.landmarks[landmark_index].y = y
+        self.landmarks[landmark_index].z = z
         self.landmarks[landmark_index].visibility = visibility
 
     def init_landmarks(self):
@@ -21,11 +22,12 @@ class Frame:
                           sort_keys=True, indent=4)
 
     class Landmark:
-        def __init__(self, landmark_index, set_name, set_x, set_y, set_visibility=0):
+        def __init__(self, landmark_index, set_name, set_x, set_y, set_z=0, set_visibility=0):
             self.index = landmark_index
             self.name = set_name
             self.x = set_x
             self.y = set_y
+            self.z = set_z
             self.visibility = set_visibility
 
     landmarks_desc = {
