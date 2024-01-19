@@ -120,7 +120,7 @@ def convert_collected_to_csv(session):
 
     with open(OUTPUTDIR + 'LOG' + session + '.csv', 'w', newline='') as csvfile:
         data_writer = csv.writer(csvfile, delimiter=';', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-        col_names = ['Frame index']
+        col_names = ['Frame index', 'attribute']
         sample_fr = Frame(0)
         for landmark in sample_fr.landmarks_desc.values():
             col_names.append(landmark)
@@ -128,11 +128,17 @@ def convert_collected_to_csv(session):
         for frame in list_data:
             x_vals = [frame['index'], 'x']
             y_vals = [frame['index'], 'y']
+            z_vals = [frame['index'], 'z']
+            vis_vals = [frame['index'], 'vis']
             for landmark in frame['landmarks']:
                 x_vals.append(landmark['x'])
                 y_vals.append(landmark['y'])
+                z_vals.append(landmark['z'])
+                vis_vals.append(landmark['visibility'])
             data_writer.writerow(x_vals)
             data_writer.writerow(y_vals)
+            data_writer.writerow(z_vals)
+            data_writer.writerow(vis_vals)
 
 
 def build_log(relative_app: QWidget):
@@ -146,33 +152,38 @@ def build_log(relative_app: QWidget):
 
 def video_loop(video: cv2.VideoCapture, relative_app: QWidget, thread: QThread):
     global global_frame_cnt
-    frame = get_frame(video)
     txt_path = WORKDIR + str(relative_app.session)
-    if frame is not None:
-        rec_frame, frame_obj = recognition_process(frame)
-        cv2.putText(rec_frame, str(global_frame_cnt), (10, 50), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
+    while thread.isRunning():
+        frame = get_frame(video)
+        if frame is not None:
+            rec_frame, frame_obj = recognition_process(frame)
+            cv2.putText(rec_frame, str(global_frame_cnt), (10, 50), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
-        relative_app.outfile.write(rec_frame)
-        if frame_obj is not None:
-            add_frame_to_txt(frame_obj, txt_path + '.txt')
+            relative_app.outfile.write(rec_frame)
+            if frame_obj is not None:
+                add_frame_to_txt(frame_obj, txt_path + '.txt')
 
-        frame = cv2.cvtColor(rec_frame, cv2.COLOR_BGR2RGBA)
-        relative_app.updateUi_image(frame)
-        global_frame_cnt += 1
+            frame = cv2.cvtColor(rec_frame, cv2.COLOR_BGR2RGBA)
+            relative_app.updateUi_image(frame)
+            global_frame_cnt += 1
 
-    else:
-        thread.terminate()
-        video.release()
-        relative_app.show_info_message("Connection lost", "Lost connection with the camera source or video just ended."
-                                                          "Converting collected data...")
-        relative_app.set_circle_color(Qt.red)
-        try:
-            # convert_collected_to_json(str(relative_app.session))
-            build_log(relative_app)
-            relative_app.show_info_message("Success!", "Operation completed. Successfully saved collected data.")
+        else:
+            thread.terminate()
+            video.release()
+            relative_app.show_info_message("Connection lost",
+                                           "Lost connection with the camera source or video just ended."
+                                           "Converting collected data...")
+            relative_app.set_circle_color(Qt.red)
+            try:
+                # convert_collected_to_json(str(relative_app.session))
+                build_log(relative_app)
+                relative_app.show_info_message("Success!", "Operation completed. Successfully saved collected data.")
+                break
 
-        except Exception as ex:
-            relative_app.show_info_message("Something went wrong!", str(ex))
+            except Exception as ex:
+                relative_app.show_info_message("Something went wrong!", str(ex))
+                break
+        QtTest.QTest.qWait(30)
 
 
 def recognition_process(image):
@@ -189,7 +200,7 @@ def recognition_process(image):
         for index, landmark in enumerate(results.pose_landmarks.landmark):
             if landmark is not None:
                 try:
-                    frame.set_landmark_params(index, landmark.x * width, landmark.y * height, landmark.visibility)
+                    frame.set_landmark_params(index, landmark.x * width, landmark.y * height, landmark.z, landmark.visibility)
                 except Exception as ex:
                     print(ex)
 

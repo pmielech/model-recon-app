@@ -1,6 +1,7 @@
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import Qt, QTimer, QDateTime, QThread, QEventLoop
+from PyQt5 import QtTest
 
 from main import cv2, Path
 from main import init_camera, video_loop, numpy_to_pixmap, build_log
@@ -232,10 +233,11 @@ class VideoCaptureThread(QThread):
         QThread.__init__(self, *args, **kwargs)
         self.dataCollectionTimer = QTimer()
         self.dataCollectionTimer.moveToThread(self)
+        self.dataCollectionTimer.setSingleShot(True)
         self.frame = None
         self.dataCollectionTimer.timeout.connect(lambda: video_loop(video, relative_app, self))
 
     def run(self):
-        self.dataCollectionTimer.start(50)
+        self.dataCollectionTimer.start()
         loop = QEventLoop()
         loop.exec_()
