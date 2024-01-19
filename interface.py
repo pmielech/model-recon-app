@@ -3,7 +3,7 @@ from PyQt5.QtGui import *
 from PyQt5.QtCore import Qt, QTimer, QDateTime, QThread, QEventLoop
 
 from main import cv2, Path
-from main import init_camera, video_loop, numpy_to_pixmap, convert_collected_to_json
+from main import init_camera, video_loop, numpy_to_pixmap, build_log
 
 sourceDict = {
     "Cam": 0,
@@ -33,8 +33,13 @@ class Window(QWidget):
 
         self.comboBox = QComboBox()
         self.comboBox.addItems(['Cam', 'Image', 'Video'])
-        self.comboBox.currentIndexChanged.connect(self.handle_combobox_change)
+        self.comboBox.currentIndexChanged.connect(self.handle_combobox_change_loadButt)
         button_layout.addWidget(self.comboBox)
+
+        self.combo_outputType = QComboBox()
+        self.combo_outputType.addItems(['*CSV', '*JSON'])
+        self.combo_outputType.currentIndexChanged.connect(self.handle_combobox_change_outfileType)
+        button_layout.addWidget(self.combo_outputType)
 
         # TODO: add camera sources combobox
 
@@ -73,6 +78,7 @@ class Window(QWidget):
         self.video = None
         self.outfile = None
         self.session = None
+        self.output_filetype = "csv"
         self.image_width = width
         self.image_height = height
         self.set_empty_image()
@@ -155,7 +161,7 @@ class Window(QWidget):
     def convertWorkfile_toJson(self, path):
         try:
             session = Path(path).stem
-            convert_collected_to_json(session)
+            build_log(self)
             self.show_info_message("Success!", "Operation completed. Successfully saved collected data.")
         except Exception as ex:
             self.show_info_message("Something went wrong!", str(ex))
@@ -182,7 +188,7 @@ class Window(QWidget):
             self.video.release()
             self.outfile.release()
             try:
-                convert_collected_to_json(str(self.session))
+                build_log(self)
                 self.show_info_message("Success!", "Operation completed. Successfully saved collected data.")
             except Exception as ex:
                 self.show_info_message("Something went wrong!", str(ex))
@@ -207,12 +213,17 @@ class Window(QWidget):
             if self.videoCollectionThread is None or not self.videoCollectionThread.isRunning():
                 self.cam_process(source)
 
-    def handle_combobox_change(self, index):
-
+    def handle_combobox_change_loadButt(self, index):
         if index == 0:
             self.load_button.setEnabled(False)
         else:
             self.load_button.setEnabled(True)
+
+    def handle_combobox_change_outfileType(self, index):
+        if index == 0:
+            self.output_filetype = "csv"
+        else:
+            self.output_filetype = "json"
 
 
 class VideoCaptureThread(QThread):

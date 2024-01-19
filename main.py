@@ -6,7 +6,7 @@ import cv2
 import mediapipe as mp
 import sys
 import json
-
+import csv
 
 from interface import *
 from Frame_class import Frame
@@ -98,7 +98,7 @@ def add_frame_to_txt(frame, path):
 
 def convert_collected_to_json(session):
     json_data = None
-    create_json('LOG' + session + '.json',  session)
+    create_json('LOG' + session + '.json', session)
     with open(OUTPUTDIR + 'LOG' + session + '.json', 'r', encoding='utf-8') as json_file:
         json_data = json.load(json_file)
 
@@ -110,6 +110,38 @@ def convert_collected_to_json(session):
             list_data = json.loads(str_data)
             json_data['frames'] = list_data
             json.dump(json_data, json_file, indent=4)
+
+
+def convert_collected_to_csv(session):
+    with open(WORKDIR + session + '.txt', 'r', encoding='utf-8') as txt_file:
+        str_data = txt_file.read()
+    str_data = '[\n' + str_data[:-1] + '\n]'
+    list_data = json.loads(str_data)
+
+    with open(OUTPUTDIR + 'LOG' + session + '.csv', 'w', newline='') as csvfile:
+        data_writer = csv.writer(csvfile, delimiter=';', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        col_names = ['Frame index']
+        sample_fr = Frame(0)
+        for landmark in sample_fr.landmarks_desc.values():
+            col_names.append(landmark)
+        data_writer.writerow(col_names)
+        for frame in list_data:
+            x_vals = [frame['index'], 'x']
+            y_vals = [frame['index'], 'y']
+            for landmark in frame['landmarks']:
+                x_vals.append(landmark['x'])
+                y_vals.append(landmark['y'])
+            data_writer.writerow(x_vals)
+            data_writer.writerow(y_vals)
+
+
+def build_log(relative_app: QWidget):
+    session = relative_app.session
+
+    if relative_app.output_filetype == "csv":
+        convert_collected_to_csv(session)
+    else:
+        convert_collected_to_json(session)
 
 
 def video_loop(video: cv2.VideoCapture, relative_app: QWidget, thread: QThread):
@@ -135,7 +167,8 @@ def video_loop(video: cv2.VideoCapture, relative_app: QWidget, thread: QThread):
                                                           "Converting collected data...")
         relative_app.set_circle_color(Qt.red)
         try:
-            convert_collected_to_json(str(relative_app.session))
+            # convert_collected_to_json(str(relative_app.session))
+            build_log(relative_app)
             relative_app.show_info_message("Success!", "Operation completed. Successfully saved collected data.")
 
         except Exception as ex:
