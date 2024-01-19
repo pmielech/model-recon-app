@@ -52,7 +52,7 @@ def init_camera(source, relative_app: QWidget):
     filepath += 'VID' + current_datetime + '.mp4'
 
     try:
-        outfile = cv2.VideoWriter(filepath, fourcc, 20.0, (width, height))
+        outfile = cv2.VideoWriter(filepath, fourcc, 30.0, (width, height))
     except Exception as ex:
         relative_app.show_info_message("Something went wrong!", str(ex))
 
@@ -170,6 +170,7 @@ def video_loop(video: cv2.VideoCapture, relative_app: QWidget, thread: QThread):
         else:
             thread.terminate()
             video.release()
+            relative_app.outfile.release()
             relative_app.show_info_message("Connection lost",
                                            "Lost connection with the camera source or video just ended."
                                            "Converting collected data...")
