@@ -1,4 +1,4 @@
-# psw-proj
+# Mediapipe Model recognition app
 
 
 This application allows user to build datasets based on a defined model. The program utilizes the Mediapipe module provided by Google. Created UI to facilitate accessibility. The program locates the landmarks in the loaded media file, indexes the following frames, and saves the landmark attributes to the LOG* file. During model recognition, loaded media is also modified with a watermark containing the frame index of the media. Modified media is saved under the VID* file. Currently, the program supports the JSON and CSV outputfiles. 
